@@ -113,6 +113,7 @@ export default function AdminPropertyDetails({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [eventError, setEventError] = useState("");
 
   useEffect(() => {
     if (property) {
@@ -124,6 +125,7 @@ export default function AdminPropertyDetails({
     if (!property?.token) return;
 
     setEventState("loading");
+    setEventError("");
 
     try {
       const estate = getReadOnlyContract();
@@ -233,8 +235,17 @@ export default function AdminPropertyDetails({
       setTransfers(activity.reverse());
       setEventState("ready");
     } catch (scanError) {
-      console.error("Holder event scan failed:", scanError);
-      setEventState("error");
+          console.error("Holder event scan failed:", scanError);
+
+          const detail =
+            scanError?.info?.error?.message ||
+            scanError?.error?.message ||
+            scanError?.shortMessage ||
+            scanError?.message ||
+            "Unknown RPC error";
+
+          setEventError(detail);
+          setEventState("error");
     }
   }, [property]);
 
@@ -612,147 +623,6 @@ export default function AdminPropertyDetails({
         </div>
       </section>
 
-      <section className="p-6 mt-6 bg-white border rounded-3xl border-stone-200">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8a6240]">
-              Token ownership
-            </p>
-
-            <h2 className="mt-1 font-serif text-2xl">
-              Current holders
-            </h2>
-
-            <p className="mt-1 text-sm text-stone-500">
-              Reconstructed from this token's ERC-20 Transfer history.
-            </p>
-          </div>
-
-          <button
-            onClick={loadChainData}
-            disabled={eventState === "loading"}
-            className="px-4 py-2 text-sm font-medium border rounded-full border-stone-300 disabled:opacity-50"
-          >
-            {eventState === "loading"
-              ? "Scanning events…"
-              : "Refresh holders"}
-          </button>
-        </div>
-
-        {eventState === "loading" ? (
-          <p className="mt-5 text-sm text-stone-500">
-            Scanning Sepolia transfer logs in adaptive chunks…
-          </p>
-        ) : eventState === "error" ? (
-          <p className="p-3 mt-5 text-sm rounded-xl bg-amber-50 text-amber-900">
-            The RPC provider could not complete the event scan,
-            or the property's registration event could not be found.
-            Try again later.
-          </p>
-        ) : holders.length === 0 ? (
-          <p className="mt-5 text-sm text-stone-500">
-            No current token holders were found.
-          </p>
-        ) : (
-          <div className="mt-5 overflow-x-auto">
-            <table className="w-full min-w-[520px] text-left text-sm">
-              <thead className="text-xs uppercase border-b border-stone-200 text-stone-500">
-                <tr>
-                  <th className="py-3 pr-4">Wallet</th>
-                  <th className="py-3 pr-4">Tokens held</th>
-                  <th className="py-3">Value at current price</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-stone-100">
-                {holders.map((holder) => (
-                  <tr key={holder.address}>
-                    <td className="py-3 pr-4 font-mono">
-                      {shortAddress(holder.address)}
-                    </td>
-
-                    <td className="py-3 pr-4 font-semibold">
-                      {holder.balance.toString()}
-                    </td>
-
-                    <td className="py-3">
-                      {formatEth(
-                        holder.balance *
-                          BigInt(property.pricePerTokenWei)
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <section className="p-6 mt-6 bg-white border rounded-3xl border-stone-200">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8a6240]">
-          On-chain activity
-        </p>
-
-        <h2 className="mt-1 font-serif text-2xl">
-          Recent token transfers
-        </h2>
-
-        {eventState === "ready" && transfers.length ? (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[600px] text-left text-sm">
-              <thead className="text-xs uppercase border-b border-stone-200 text-stone-500">
-                <tr>
-                  <th className="py-3 pr-3">Block</th>
-                  <th className="py-3 pr-3">From</th>
-                  <th className="py-3 pr-3">To</th>
-                  <th className="py-3 pr-3">Tokens</th>
-                  <th className="py-3">Transaction</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-stone-100">
-                {transfers.slice(0, 30).map((transfer, index) => (
-                  <tr key={`${transfer.hash}-${index}`}>
-                    <td className="py-3 pr-3">
-                      {transfer.block}
-                    </td>
-
-                    <td className="py-3 pr-3 font-mono">
-                      {shortAddress(transfer.from)}
-                    </td>
-
-                    <td className="py-3 pr-3 font-mono">
-                      {shortAddress(transfer.to)}
-                    </td>
-
-                    <td className="py-3 pr-3">
-                      {transfer.amount.toString()}
-                    </td>
-
-                    <td className="py-3">
-                      <a
-                        className="text-[#1f3d34] underline"
-                        href={`https://sepolia.etherscan.io/tx/${transfer.hash}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        View
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="mt-4 text-sm text-stone-500">
-            {eventState === "loading"
-              ? "Loading transfer history…"
-              : "No transfer events available."}
-          </p>
-        )}
-      </section>
     </main>
   );
 }
